@@ -1,0 +1,169 @@
+-- STEP 1: Create Database
+CREATE DATABASE employee;
+USE employee;
+
+-- STEP 2: Create Tables
+CREATE TABLE emp_record_table (
+    EMP_ID INT PRIMARY KEY,
+    FIRST_NAME VARCHAR(50),
+    LAST_NAME VARCHAR(50),
+    GENDER VARCHAR(10),
+    ROLE VARCHAR(50),
+    DEPT VARCHAR(50),
+    EXP INT,
+    COUNTRY VARCHAR(50),
+    CONTINENT VARCHAR(50),
+    SALARY DECIMAL(10,2),
+    EMP_RATING INT,
+    MANAGER_ID INT,
+    PROJ_ID INT
+);
+
+CREATE TABLE proj_table (
+    PROJECT_ID INT PRIMARY KEY,
+    PROJ_Name VARCHAR(100),
+    DOMAIN VARCHAR(50),
+    START_DATE DATE,
+    CLOSURE_DATE DATE,
+    DEV_QTR VARCHAR(10),
+    STATUS VARCHAR(20)
+);
+
+CREATE TABLE data_science_team (
+    EMP_ID INT PRIMARY KEY,
+    FIRST_NAME VARCHAR(50),
+    LAST_NAME VARCHAR(50),
+    GENDER VARCHAR(10),
+    ROLE VARCHAR(50),
+    DEPT VARCHAR(50),
+    EXP INT,
+    COUNTRY VARCHAR(50),
+    CONTINENT VARCHAR(50)
+);
+
+-- STEP 3: Load CSV Data (paths may differ in your system)
+-- MySQL Example (adjust path as per local system)
+LOAD DATA INFILE '/path/to/emp_record_table.csv'
+INTO TABLE emp_record_table
+FIELDS TERMINATED BY ','
+IGNORE 1 ROWS;
+
+LOAD DATA INFILE '/path/to/proj_table.csv'
+INTO TABLE proj_table
+FIELDS TERMINATED BY ','
+IGNORE 1 ROWS;
+
+LOAD DATA INFILE '/path/to/data_science_team.csv'
+INTO TABLE data_science_team
+FIELDS TERMINATED BY ','
+IGNORE 1 ROWS;
+
+-- STEP 4: Queries as per problem statement
+
+-- 4.1 List employees with dept
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, GENDER, DEPT
+FROM emp_record_table;
+
+-- 4.2 Employees by rating conditions
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, GENDER, DEPT, EMP_RATING
+FROM emp_record_table
+WHERE EMP_RATING < 2;
+
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, GENDER, DEPT, EMP_RATING
+FROM emp_record_table
+WHERE EMP_RATING > 4;
+
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, GENDER, DEPT, EMP_RATING
+FROM emp_record_table
+WHERE EMP_RATING BETWEEN 2 AND 4;
+
+-- 4.3 Concatenate names for Finance dept
+SELECT CONCAT(FIRST_NAME, ' ', LAST_NAME) AS NAME
+FROM emp_record_table
+WHERE DEPT = 'Finance';
+
+-- 4.4 Employees with reporters
+SELECT MANAGER_ID, COUNT(*) AS NUM_REPORTERS
+FROM emp_record_table
+WHERE MANAGER_ID IS NOT NULL
+GROUP BY MANAGER_ID;
+
+-- 4.5 Employees from healthcare and finance
+SELECT * FROM emp_record_table WHERE DEPT = 'Healthcare'
+UNION
+SELECT * FROM emp_record_table WHERE DEPT = 'Finance';
+
+-- 4.6 Employee details grouped by dept with max rating
+SELECT DEPT, EMP_ID, FIRST_NAME, LAST_NAME, ROLE, EMP_RATING,
+       MAX(EMP_RATING) OVER (PARTITION BY DEPT) AS MAX_DEPT_RATING
+FROM emp_record_table;
+
+-- 4.7 Min and max salary by role
+SELECT ROLE, MIN(SALARY) AS MIN_SALARY, MAX(SALARY) AS MAX_SALARY
+FROM emp_record_table
+GROUP BY ROLE;
+
+-- 4.8 Rank employees by experience
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, EXP,
+       RANK() OVER (ORDER BY EXP DESC) AS EXPERIENCE_RANK
+FROM emp_record_table;
+
+-- 4.9 View for employees with salary > 6000
+CREATE VIEW HighSalaryEmployees AS
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, COUNTRY, SALARY
+FROM emp_record_table
+WHERE SALARY > 6000;
+
+-- 4.10 Nested query: employees with exp > 10 years
+SELECT * FROM emp_record_table
+WHERE EMP_ID IN (
+    SELECT EMP_ID FROM emp_record_table WHERE EXP > 10
+);
+
+-- 4.11 Stored procedure: employees with exp > 3 years
+DELIMITER //
+CREATE PROCEDURE GetExperiencedEmployees()
+BEGIN
+    SELECT * FROM emp_record_table WHERE EXP > 3;
+END //
+DELIMITER ;
+
+-- 4.12 Stored function: check job profile standard
+DELIMITER //
+CREATE FUNCTION JobProfile(exp_years INT)
+RETURNS VARCHAR(50)
+DETERMINISTIC
+BEGIN
+    DECLARE profile VARCHAR(50);
+    IF exp_years <= 2 THEN
+        SET profile = 'JUNIOR DATA SCIENTIST';
+    ELSEIF exp_years > 2 AND exp_years <= 5 THEN
+        SET profile = 'ASSOCIATE DATA SCIENTIST';
+    ELSEIF exp_years > 5 AND exp_years <= 10 THEN
+        SET profile = 'SENIOR DATA SCIENTIST';
+    ELSEIF exp_years > 10 AND exp_years <= 12 THEN
+        SET profile = 'LEAD DATA SCIENTIST';
+    ELSEIF exp_years > 12 AND exp_years <= 16 THEN
+        SET profile = 'MANAGER';
+    END IF;
+    RETURN profile;
+END //
+DELIMITER ;
+
+-- Apply function to data science team
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, EXP, ROLE,
+       JobProfile(EXP) AS EXPECTED_ROLE
+FROM data_science_team;
+
+-- 4.13 Create index for faster search on FIRST_NAME
+CREATE INDEX idx_firstname ON emp_record_table(FIRST_NAME);
+
+-- 4.14 Calculate bonus (5% salary * rating)
+SELECT EMP_ID, FIRST_NAME, LAST_NAME, SALARY, EMP_RATING,
+       (0.05 * SALARY * EMP_RATING) AS BONUS
+FROM emp_record_table;
+
+-- 4.15 Average salary distribution by continent & country
+SELECT CONTINENT, COUNTRY, AVG(SALARY) AS AVG_SALARY
+FROM emp_record_table
+GROUP BY CONTINENT, COUNTRY;
